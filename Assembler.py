@@ -131,8 +131,32 @@ def assemble(lines) :
       binary_code = ( imm_12 +imm_10_5 +REGISTER_MAP[rs2] +REGISTER_MAP[rs1]+B_FUNCT3[opcode] +imm_4_1 +imm_11 +B_OPCODE)
       if opcode == "beq" and REGISTER_MAP[rs1] == "00000" and REGISTER_MAP[rs2] == "00000" and offset == 0:
         halt_line = line_no
-    
-        
+
+      elif opcode in U_TYPE:
+       rd = parts[1]
+       imm = parts[2]
+       imm_value = int(imm, 0)
+       imm_binary =decomal_to_signed_binary(imm_val, 20)
+       binary_code = (imm_bin + REGISTER_MAP[rd] + U_TYPE[opcode])
+    elif opcode == "jal":
+       rd = parts[1]
+       target = parts[2]
+       if target in labels:
+          offset = labels[target] - pc
+       else:
+          try:
+              offset = int(target, 0)
+          except:
+              raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
+       imm_binary = decimal_to_signed_binary(offset, 21)
+       imm = imm_binary[:-1]
+       imm_20    = imm[0]
+       imm_10_1  = imm[10:20]
+       imm_11    = imm[9]
+       imm_19_12 = imm[1:9]
+       binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + REGISTER_MAP[rd] + J_Opcode)
+    else:
+       raise ValueError("Line " + str(line_no) + ": Unknown instruction " + opcode)
 
           
 
