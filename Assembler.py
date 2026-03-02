@@ -219,10 +219,15 @@ def assemble(lines) :
             binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + Register_Map[rd] + J_opcode)
         else:
             raise ValueError("Line " + str(line_no) + ": Unknown instruction " + opcode)
-        output.append(binary_code)
-        pc += 4
     except Exception as e:
-        print(str(e))
+        raise e
+    output.append(code)
+        pc += 4
+    if halt_line is None:
+        raise ValueError("Virtual halt missing (beq zero,zero,0)")
+    if halt_line != last_instr_line:
+        raise ValueError("Virtual halt must be last instruction")
+    return output
 
           
 
