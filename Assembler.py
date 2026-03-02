@@ -51,3 +51,70 @@ U_type = {
 J_type = {
     "jal": "1101111"
 }
+
+def assemble(lines) :
+  
+  labels = first_pass(lines)
+  pc = 0
+  output = []
+  halt_line = -1
+  
+  for i in range(len(lines)):
+    line_no = i+1
+    line = lines[i].split(";")[0].strip()
+    
+    if not line :
+      continue
+      
+    if ":" in line :
+      line = line.split(":")[1].strip()
+      if not line :
+        continue
+        
+    formatted_line = line.replace(","," ")
+    formatted_line = formated_line.replace("("," "))
+    formatted_line formatted_line.replace(")", " ")
+
+    parts = formatted_line.split()
+    opcode = parts[0]
+    last_instruction_line = line_no
+
+    
+    if opcode in R_type_funct7_funct3 :
+      rd = parts[1]
+      rs1 = parts[2]
+      rs2 = parts[3]
+      funct7 = R_type_funct7_funct3[opcode]["funct7"]
+      funct3 = R_type_funct7_funct3[opcode]["funct3"]
+      binary_code = ( funct7 + Register_Map[rs2] + Register_Map[rs1] + funct 3 + Register_Map[rd] + R_type_Opcode )
+
+    elif opcode in I-type :
+      if opcode == "lw":
+        rd = parts[1]
+        imm = parts[2]
+        rs1 = parts[3]
+        else :
+        rd = parts[1]
+        rs1 = parts[2]
+        imm = parts[3]
+
+        imm_val = int(imm, 0)
+        imm_binary = decimal_to_signed_binary(imm_val, 12)
+
+     binary_code = ( imm_binary + Register_Map[rs1] + I_TYPE[opcode]["funct3"] + Register_map[rd] + I_TYPE[opcode]["opcode"] )
+
+        
+        
+
+          
+
+        
+
+        
+    
+
+    
+                                      
+                
+      
+    
