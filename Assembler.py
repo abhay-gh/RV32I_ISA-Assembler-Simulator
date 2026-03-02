@@ -93,7 +93,7 @@ def assemble(lines) :
         rd = parts[1]
         imm = parts[2]
         rs1 = parts[3]
-        else :
+      else :
         rd = parts[1]
         rs1 = parts[2]
         imm = parts[3]
