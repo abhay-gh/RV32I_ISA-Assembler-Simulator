@@ -50,6 +50,14 @@ U_type = {
 }
 J_opcode = "1101111"
 
+def decimal_to_signed_binary(value, bits):
+    if value < 0:
+        value = 1 << bits + value  
+
+    binary_string = format(value, "b")  
+    padded_binary = binary_string.zfill(bits) # to match bit width
+    return padded_binary
+
 def assemble(lines) :
   
   labels = first_pass(lines)
@@ -84,7 +92,7 @@ def assemble(lines) :
       rs2 = parts[3]
       funct7 = R_type_funct7_funct3[opcode]["funct7"]
       funct3 = R_type_funct7_funct3[opcode]["funct3"]
-      binary_code = ( funct7 + Register_Map[rs2] + Register_Map[rs1] + funct 3 + Register_Map[rd] + R_type_Opcode )
+      binary_code = funct7 + Register_Map[rs2] + Register_Map[rs1] + funct3 + Register_Map[rd] + R_type_Opcode
 
     elif opcode in I_type :
       if opcode == "lw":
