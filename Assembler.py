@@ -12,3 +12,42 @@ Register_Map = {
   "a0": "01010", "a1": "01011", "a2": "01100", "a3": "01101", "a4": "01110", "a5": "01111","a6": "10000", 
   "a7": "10001",
 }
+
+R_type_Opcode = "0110011"
+R_type_funct7_funct3 = {
+    "add": {"funct7": "0000000", "funct3": "000"},
+    "sub": {"funct7": "0100000", "funct3": "000"},
+    "and": {"funct7": "0000000", "funct3": "111"},
+    "or":  {"funct7": "0000000", "funct3": "110"},
+    "slt": {"funct7": "0000000", "funct3": "010"},
+    "sll": {"funct7": "0000000", "funct3": "001"},
+    "sltu":{"funct7": "0000000", "funct3": "011"},
+    "xor": {"funct7": "0000000", "funct3": "100"},
+    "srl": {"funct7": "0000000", "funct3": "101"}
+}
+I_type = {
+    "addi": {"opcode": "0010011", "funct3": "000"},
+    "sltiu":{"opcode": "0010011", "funct3": "011"},
+    "lw":   {"opcode": "0000011", "funct3": "010"},
+    "jalr": {"opcode": "1100111", "funct3": "000"}
+}
+S_opcode = "0100011"
+S_funct3 = {
+    "sw": "010"
+}
+B_opcode = "1100011"
+B_funct3 = {
+    "beq": "000",
+    "bne": "001",
+    "blt": "100",
+    "bge": "101",
+    "bltu":"110",
+    "bgeu":"111"
+}
+U_type = {
+    "lui": "0110111",
+    "auipc": "0010111"
+}
+J_type = {
+    "jal": "1101111"
+}
