@@ -102,8 +102,36 @@ def assemble(lines) :
         imm_binary = decimal_to_signed_binary(imm_val, 12)
 
      binary_code = ( imm_binary + Register_Map[rs1] + I_TYPE[opcode]["funct3"] + Register_map[rd] + I_TYPE[opcode]["opcode"] )
-
-        
+   elif opcode in S_FUNCT3:
+      rs2 = parts[1]
+      imm = parts[2]
+      rs1 = parts[3]
+      imm_value = int(imm, 0)
+      imm_binary = decimal_to_signed_binary(imm_val, 12)
+      upper = imm_bin[:7]
+      lower = imm_bin[7:]
+      binary_code = (upper + REGISTER_MAP[rs2] + REGISTER_MAP[rs1] + S_FUNCT3[opcode] + lower + S_OPCODE)
+   elif opcode in B_FUNCT3:
+      rs1 = parts[1]
+      rs2 = parts[2]
+      target = parts[3]
+      if target in labels:
+        offset = labels[target] - pc
+      else:
+        try:
+            offset = int(target,0)
+        except:
+            raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
+      imm_binary = decimal_to_signed_binary(offset, 13)
+      imm = imm_binary[:-1]
+      imm_12   = imm[0]
+      imm_10_5 = imm[2:8]
+      imm_4_1  = imm[8:12]
+      imm_11   = imm[1]
+      binary_code = ( imm_12 +imm_10_5 +REGISTER_MAP[rs2] +REGISTER_MAP[rs1]+B_FUNCT3[opcode] +imm_4_1 +imm_11 +B_OPCODE)
+      if opcode == "beq" and REGISTER_MAP[rs1] == "00000" and REGISTER_MAP[rs2] == "00000" and offset == 0:
+        halt_line = line_no
+    
         
 
           
