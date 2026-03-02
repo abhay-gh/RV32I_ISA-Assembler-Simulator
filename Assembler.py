@@ -52,7 +52,7 @@ J_opcode = "1101111"
 
 def decimal_to_signed_binary(value, bits):
     if value < 0:
-        value = 1 << bits + value  
+        value = (1 << bits) + value  
 
     binary_string = format(value, "b")  
     padded_binary = binary_string.zfill(bits) # to match bit width
@@ -141,13 +141,13 @@ def assemble(lines) :
                 rd = parts[1]
                 rs1 = parts[2]
                 imm = parts[3]
-                check_reg(rd,line_no)
-                check_reg(rs1,line_no)
-                imm_val = int(imm, 0)
-                check_range(imm_val,12,line_no)
-                imm_binary = decimal_to_signed_binary(imm_val, 12)
+            check_reg(rd,line_no)
+            check_reg(rs1,line_no)
+            imm_val = int(imm, 0)
+            check_range(imm_val,12,line_no)
+            imm_binary = decimal_to_signed_binary(imm_val, 12)
 
-                binary_code = ( imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"] )
+            binary_code = ( imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"] )
         
         elif opcode in S_funct3:
             rs2 = parts[1]
@@ -156,8 +156,8 @@ def assemble(lines) :
             check_reg(rs1,line_no)
             check_reg(rs2,line_no)
             imm_value = int(imm, 0)
-            check_range(imm_val,12,line_no)
-            imm_binary = decimal_to_signed_binary(imm_val, 12)
+            check_range(imm_value,12,line_no)
+            imm_binary = decimal_to_signed_binary(imm_value, 12)
             upper = imm_binary[:7]
             lower = imm_binary[7:]
             binary_code = (upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode)
@@ -175,8 +175,8 @@ def assemble(lines) :
                     offset = int(target,0)
                 except:
                     raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
-            imm_binary = decimal_to_signed_binary(offset, 13)
-            check_range(offset,13,line_no)
+          check_range(offset,13,line_no)  
+          imm_binary = decimal_to_signed_binary(offset, 13)
 
             imm = imm_binary[:-1]
             imm_12   = imm[0]
@@ -187,14 +187,15 @@ def assemble(lines) :
             if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
                 halt_line = line_no
 
-            elif opcode in U_type:
-                rd = parts[1]
-                imm = parts[2]
-                check_reg(rd,line_no)
-                imm_value = int(imm, 0)
-                check_range(imm_value,20,line_no)
-                imm_binary =decimal_to_signed_binary(imm_value, 20)
-                binary_code = (imm_binary + Register_Map[rd] + U_type[opcode])
+        elif opcode in U_type:
+            rd = parts[1]
+            imm = parts[2]
+            check_reg(rd,line_no)
+            imm_value = int(imm, 0)
+            check_range(imm_value,20,line_no)
+            imm_binary =decimal_to_signed_binary(imm_value, 20)
+            binary_code = (imm_binary + Register_Map[rd] + U_type[opcode])
+        
         elif opcode == "jal":
             rd = parts[1]
             target = parts[2]
@@ -207,8 +208,8 @@ def assemble(lines) :
                     offset = int(target, 0)
                 except:
                     raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
-            imm_binary = decimal_to_signed_binary(offset, 21)
-            check_range(offset,21,line_no)
+          check_range(offset,21,line_no)  
+          imm_binary = decimal_to_signed_binary(offset, 21)
 
             imm = imm_binary[:-1]
             imm_20    = imm[0]
@@ -218,6 +219,8 @@ def assemble(lines) :
             binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + Register_Map[rd] + J_opcode)
         else:
             raise ValueError("Line " + str(line_no) + ": Unknown instruction " + opcode)
+        output.append(binary_code)
+        pc += 4
     except Exception as e:
         print(str(e))
 
