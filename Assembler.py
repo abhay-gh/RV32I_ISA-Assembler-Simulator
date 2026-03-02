@@ -58,6 +58,20 @@ def decimal_to_signed_binary(value, bits):
     padded_binary = binary_string.zfill(bits) # to match bit width
     return padded_binary
 
+def check_reg(r, line_no):
+    if r not in Register_Map:
+        raise ValueError(f"Line {line_no}: Invalid register {r}")
+    
+def check_range(val, bits, line_no):
+    limit = 1 << (bits - 1)  # 2^(bits-1)
+
+    # signed range
+    minimum = -limit
+    maximum = limit - 1
+
+    if val < minimum or val > maximum:
+         raise ValueError(f"Line {line_no}: Immediate out of range")
+
 def assemble(lines) :
   
   labels = first_pass(lines)
@@ -84,87 +98,106 @@ def assemble(lines) :
     parts = formatted_line.split()
     opcode = parts[0]
     last_instruction_line = line_no
+    try:
+        if opcode in R_type_funct7_funct3 :
+            rd = parts[1]
+            rs1 = parts[2]
+            rs2 = parts[3]
+            funct7 = R_type_funct7_funct3[opcode]["funct7"]
+            funct3 = R_type_funct7_funct3[opcode]["funct3"]
+            check_reg(rd,line_no)
+            check_reg(rs1,line_no)
+            check_reg(rs2,line_no)
+            binary_code = funct7 + Register_Map[rs2] + Register_Map[rs1] + funct3 + Register_Map[rd] + R_type_Opcode
 
-    
-    if opcode in R_type_funct7_funct3 :
-      rd = parts[1]
-      rs1 = parts[2]
-      rs2 = parts[3]
-      funct7 = R_type_funct7_funct3[opcode]["funct7"]
-      funct3 = R_type_funct7_funct3[opcode]["funct3"]
-      binary_code = funct7 + Register_Map[rs2] + Register_Map[rs1] + funct3 + Register_Map[rd] + R_type_Opcode
+        elif opcode in I_type :
+            if opcode == "lw":
+                rd = parts[1]
+                imm = parts[2]
+                rs1 = parts[3]
+            else :
+                rd = parts[1]
+                rs1 = parts[2]
+                imm = parts[3]
+                check_reg(rd,line_no)
+                check_reg(rs1,line_no)
+                imm_val = int(imm, 0)
+                check_range(imm_val,12,line_no)
+                imm_binary = decimal_to_signed_binary(imm_val, 12)
 
-    elif opcode in I_type :
-      if opcode == "lw":
-        rd = parts[1]
-        imm = parts[2]
-        rs1 = parts[3]
-      else :
-        rd = parts[1]
-        rs1 = parts[2]
-        imm = parts[3]
+                binary_code = ( imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"] )
+        
+        elif opcode in S_funct3:
+            rs2 = parts[1]
+            imm = parts[2]
+            rs1 = parts[3]
+            check_reg(rs1,line_no)
+            check_reg(rs2,line_no)
+            imm_value = int(imm, 0)
+            check_range(imm_val,12,line_no)
+            imm_binary = decimal_to_signed_binary(imm_val, 12)
+            upper = imm_binary[:7]
+            lower = imm_binary[7:]
+            binary_code = (upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode)
+        
+        elif opcode in B_funct3:
+            rs1 = parts[1]
+            rs2 = parts[2]
+            target = parts[3]
+            check_reg(rs1,line_no)
+            check_reg(rs2,line_no)
+            if target in labels:
+                offset = labels[target] - pc
+            else:
+                try:
+                    offset = int(target,0)
+                except:
+                    raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
+            imm_binary = decimal_to_signed_binary(offset, 13)
+            check_range(offset,13,line_no)
 
-        imm_val = int(imm, 0)
-        imm_binary = decimal_to_signed_binary(imm_val, 12)
+            imm = imm_binary[:-1]
+            imm_12   = imm[0]
+            imm_10_5 = imm[2:8]
+            imm_4_1  = imm[8:12]
+            imm_11   = imm[1]
+            binary_code = ( imm_12 +imm_10_5 +Register_Map[rs2] +Register_Map[rs1]+B_funct3[opcode] +imm_4_1 +imm_11 +B_opcode)
+            if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
+                halt_line = line_no
 
-        binary_code = ( imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"] )
-    
-    elif opcode in S_funct3:
-      rs2 = parts[1]
-      imm = parts[2]
-      rs1 = parts[3]
-      imm_value = int(imm, 0)
-      imm_binary = decimal_to_signed_binary(imm_val, 12)
-      upper = imm_binary[:7]
-      lower = imm_binary[7:]
-      binary_code = (upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode)
-    
-    elif opcode in B_funct3:
-      rs1 = parts[1]
-      rs2 = parts[2]
-      target = parts[3]
-      if target in labels:
-        offset = labels[target] - pc
-      else:
-        try:
-            offset = int(target,0)
-        except:
-            raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
-      imm_binary = decimal_to_signed_binary(offset, 13)
-      imm = imm_binary[:-1]
-      imm_12   = imm[0]
-      imm_10_5 = imm[2:8]
-      imm_4_1  = imm[8:12]
-      imm_11   = imm[1]
-      binary_code = ( imm_12 +imm_10_5 +Register_Map[rs2] +Register_Map[rs1]+B_funct3[opcode] +imm_4_1 +imm_11 +B_opcode)
-      if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
-        halt_line = line_no
+            elif opcode in U_type:
+                rd = parts[1]
+                imm = parts[2]
+                check_reg(rd,line_no)
+                imm_value = int(imm, 0)
+                check_range(imm_value,20,line_no)
+                imm_binary =decimal_to_signed_binary(imm_value, 20)
+                binary_code = (imm_binary + Register_Map[rd] + U_type[opcode])
+        elif opcode == "jal":
+            rd = parts[1]
+            target = parts[2]
+            check_reg(rd,line_no)
 
-      elif opcode in U_type:
-       rd = parts[1]
-       imm = parts[2]
-       imm_value = int(imm, 0)
-       imm_binary =decimal_to_signed_binary(imm_val, 20)
-       binary_code = (imm_binary + Register_Map[rd] + U_type[opcode])
-    elif opcode == "jal":
-       rd = parts[1]
-       target = parts[2]
-       if target in labels:
-          offset = labels[target] - pc
-       else:
-          try:
-              offset = int(target, 0)
-          except:
-              raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
-       imm_binary = decimal_to_signed_binary(offset, 21)
-       imm = imm_binary[:-1]
-       imm_20    = imm[0]
-       imm_10_1  = imm[10:20]
-       imm_11    = imm[9]
-       imm_19_12 = imm[1:9]
-       binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + Register_Map[rd] + J_opcode)
-    else:
-       raise ValueError("Line " + str(line_no) + ": Unknown instruction " + opcode)
+            if target in labels:
+                offset = labels[target] - pc
+            else:
+                try:
+                    offset = int(target, 0)
+                except:
+                    raise ValueError("Line " + str(line_no) + ": Unknown label " + target)
+            imm_binary = decimal_to_signed_binary(offset, 21)
+            check_range(offset,21,line_no)
+
+            imm = imm_binary[:-1]
+            imm_20    = imm[0]
+            imm_10_1  = imm[10:20]
+            imm_11    = imm[9]
+            imm_19_12 = imm[1:9]
+            binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + Register_Map[rd] + J_opcode)
+        else:
+            raise ValueError("Line " + str(line_no) + ": Unknown instruction " + opcode)
+    except Exception as e:
+        print(str(e))
 
           
 
