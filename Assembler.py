@@ -6,7 +6,7 @@ Register_Map = {
   "x19": "10011", "x20": "10100", "x21": "10101", "x22": "10110", "x23": "10111", "x24": "11000", "x25": "11001",
   "x26":  "11010", "x27":  "11011", "x28": "11100", "x29": "11101", "x30": "11110", "x31": "11111",
   "ra": "00001",  "sp": "00010", "gp": "00011",  "tp": "00100", 
-  "t0": "00101",  "t1": "00110", "t2": "00111", "t3": "11100",   "t4": "11101", "t5": "11110", "t6": "11111"
+  "t0": "00101",  "t1": "00110", "t2": "00111", "t3": "11100",   "t4": "11101", "t5": "11110", "t6": "11111",
   "s0": "01000", "fp": "01000", "s1": "01001",  "s2": "10010", "s3": "10011", "s4": "10100", "s5": "10101",
   "s6": "10110", "s7": "10111", "s8": "11000", "s9": "11001", "s10": "11010", "s11": "11011", 
   "a0": "01010", "a1": "01011", "a2": "01100", "a3": "01101", "a4": "01110", "a5": "01111","a6": "10000", 
@@ -48,9 +48,7 @@ U_type = {
     "lui": "0110111",
     "auipc": "0010111"
 }
-J_type = {
-    "jal": "1101111"
-}
+J_opcode = "1101111"
 
 def assemble(lines) :
   
@@ -72,8 +70,8 @@ def assemble(lines) :
         continue
         
     formatted_line = line.replace(","," ")
-    formatted_line = formated_line.replace("("," "))
-    formatted_line formatted_line.replace(")", " ")
+    formatted_line = formatted_line.replace("("," ")
+    formatted_line = formatted_line.replace(")", " ")
 
     parts = formatted_line.split()
     opcode = parts[0]
@@ -88,7 +86,7 @@ def assemble(lines) :
       funct3 = R_type_funct7_funct3[opcode]["funct3"]
       binary_code = ( funct7 + Register_Map[rs2] + Register_Map[rs1] + funct 3 + Register_Map[rd] + R_type_Opcode )
 
-    elif opcode in I-type :
+    elif opcode in I_type :
       if opcode == "lw":
         rd = parts[1]
         imm = parts[2]
@@ -101,17 +99,19 @@ def assemble(lines) :
         imm_val = int(imm, 0)
         imm_binary = decimal_to_signed_binary(imm_val, 12)
 
-     binary_code = ( imm_binary + Register_Map[rs1] + I_TYPE[opcode]["funct3"] + Register_map[rd] + I_TYPE[opcode]["opcode"] )
-   elif opcode in S_FUNCT3:
+        binary_code = ( imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"] )
+    
+    elif opcode in S_funct3:
       rs2 = parts[1]
       imm = parts[2]
       rs1 = parts[3]
       imm_value = int(imm, 0)
       imm_binary = decimal_to_signed_binary(imm_val, 12)
-      upper = imm_bin[:7]
-      lower = imm_bin[7:]
-      binary_code = (upper + REGISTER_MAP[rs2] + REGISTER_MAP[rs1] + S_FUNCT3[opcode] + lower + S_OPCODE)
-   elif opcode in B_FUNCT3:
+      upper = imm_binary[:7]
+      lower = imm_binary[7:]
+      binary_code = (upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode)
+    
+    elif opcode in B_funct3:
       rs1 = parts[1]
       rs2 = parts[2]
       target = parts[3]
@@ -128,16 +128,16 @@ def assemble(lines) :
       imm_10_5 = imm[2:8]
       imm_4_1  = imm[8:12]
       imm_11   = imm[1]
-      binary_code = ( imm_12 +imm_10_5 +REGISTER_MAP[rs2] +REGISTER_MAP[rs1]+B_FUNCT3[opcode] +imm_4_1 +imm_11 +B_OPCODE)
-      if opcode == "beq" and REGISTER_MAP[rs1] == "00000" and REGISTER_MAP[rs2] == "00000" and offset == 0:
+      binary_code = ( imm_12 +imm_10_5 +Register_Map[rs2] +Register_Map[rs1]+B_funct3[opcode] +imm_4_1 +imm_11 +B_opcode)
+      if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
         halt_line = line_no
 
-      elif opcode in U_TYPE:
+      elif opcode in U_type:
        rd = parts[1]
        imm = parts[2]
        imm_value = int(imm, 0)
-       imm_binary =decomal_to_signed_binary(imm_val, 20)
-       binary_code = (imm_bin + REGISTER_MAP[rd] + U_TYPE[opcode])
+       imm_binary =decimal_to_signed_binary(imm_val, 20)
+       binary_code = (imm_binary + Register_Map[rd] + U_type[opcode])
     elif opcode == "jal":
        rd = parts[1]
        target = parts[2]
@@ -154,7 +154,7 @@ def assemble(lines) :
        imm_10_1  = imm[10:20]
        imm_11    = imm[9]
        imm_19_12 = imm[1:9]
-       binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + REGISTER_MAP[rd] + J_Opcode)
+       binary_code = (imm_20 + imm_10_1 + imm_11 + imm_19_12 + Register_Map[rd] + J_opcode)
     else:
        raise ValueError("Line " + str(line_no) + ": Unknown instruction " + opcode)
 
