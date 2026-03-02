@@ -72,6 +72,28 @@ def check_range(val, bits, line_no):
     if val < minimum or val > maximum:
          raise ValueError(f"Line {line_no}: Immediate out of range")
 
+def first_pass(lines):
+    labels = {}
+    pc = 0
+    for idx, line in enumerate(lines):
+        line = line.split(";")[0].strip()
+        if not line:
+            continue
+        if ":" in line:
+            label = line.split(":")[0].strip()
+            if not label:
+                raise ValueError(f"Line {idx+1}: Empty label")
+            if not label[0].isalpha():
+                raise ValueError(f"Line {idx+1}: Label must start with a letter")
+            if label in labels:
+                raise ValueError(f"Line {idx+1}: Duplicate label '{label}'")
+            labels[label] = pc
+            if line.split(":")[1].strip():
+                pc += 4
+        else:
+            pc += 4
+    return labels
+
 def assemble(lines) :
   
   labels = first_pass(lines)
