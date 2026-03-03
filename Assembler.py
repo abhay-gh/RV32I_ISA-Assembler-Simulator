@@ -78,7 +78,11 @@ def check_operands(parts, expected, line_no):
         raise ValueError("Line " + str(line_no) + ": Too few operands for " + parts[0])
     if len(parts) > expected:
         raise ValueError("Line " + str(line_no) + ": Too many operands for " + parts[0])
-
+def parse_immediate(imm_str, line_no):
+    try:
+        return int(imm_str, 0)
+    except ValueError:
+        raise ValueError("Line " + str(line_no) + ": Invalid immediate value '" + imm_str + "'")
 def check_range(val, bits, line_no):
     limit = 1 << (bits - 1)
     minimum = -limit
