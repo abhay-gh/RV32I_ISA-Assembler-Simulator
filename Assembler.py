@@ -218,24 +218,29 @@ def assemble(lines):
         binary_code = (imm_12 + imm_10_5 + Register_Map[rs2] + Register_Map[rs1] + B_funct3[opcode] + imm_4_1 + imm_11 + B_opcode)
         if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
             halt_line = line_no
-    
     elif opcode in U_type:
+        check_commas(line, 1, line_no)
+        check_operands(parts, 3, line_no)
         rd = parts[1]
         imm = parts[2]
         check_reg(rd,line_no)
-        imm_val = int(imm, 0)
+        imm_val = parse_immediate(imm, line_no)
         check_range(imm_val,20,line_no)
         imm_binary = decimal_to_signed_binary(imm_val, 20)
         binary_code = imm_binary + Register_Map[rd] + U_type[opcode]
     
     elif opcode == "jal":
+        check_commas(line, 1, line_no)
+        check_operands(parts, 3, line_no)
         rd = parts[1]
         target = parts[2]
         check_reg(rd,line_no)
         if target in labels:
             offset = labels[target] - pc
         else:
-            offset = int(target, 0)
+            offset = parse_immediate(target, line_no)
+        if offset % 2 != 0:
+            raise ValueError("Line " + str(line_no) + ": Jump offset must be a multiple of 2")
         check_range(offset,21,line_no)
         imm_binary = decimal_to_signed_binary(offset, 21)
         imm = imm_binary[:-1]
@@ -253,6 +258,5 @@ def assemble(lines):
   
   if halt_line == -1:
       raise ValueError("Virtual halt missing (beq zero,zero,0)")
-  if halt_line != last_instruction_line:
-      raise ValueError("Virtual halt must be last instruction")
   return output
+    
