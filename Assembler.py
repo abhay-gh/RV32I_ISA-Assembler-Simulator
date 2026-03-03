@@ -263,3 +263,24 @@ def assemble(lines):
       raise ValueError("Virtual halt missing (beq zero,zero,0)")
   return output
     
+if __name__ == "__main__":
+    try:
+        input_file, output_file, *rest = sys.argv[1:]
+        readable_file = rest[0] if rest else None
+
+        with open(input_file) as f:
+            machine_code = assemble(f.readlines())
+
+        open(output_file, "w").write("\n".join(machine_code) + "\n")
+
+        if readable_file:
+            open(readable_file, "w").write(
+                "\n".join(f"0x{int(c, 2):08X}" for c in machine_code) + "\n"
+            )
+
+    except Exception as e:
+        for i in (2, 3):
+            if len(sys.argv) > i:
+                open(sys.argv[i], "w").close()
+        print(e)
+        sys.exit(1)
