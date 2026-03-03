@@ -180,19 +180,23 @@ def assemble(lines):
         binary_code = (imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"])
     
     elif opcode in S_funct3:
+        check_commas(line, 1, line_no)
+        check_operands(parts, 4, line_no)
         rs2 = parts[1]
         imm = parts[2]
         rs1 = parts[3]
         check_reg(rs1,line_no)
         check_reg(rs2,line_no)
-        imm_val = int(imm, 0)
+        imm_val = parse_immediate(imm, line_no)
         check_range(imm_val,12,line_no)
         imm_binary = decimal_to_signed_binary(imm_val, 12)
         upper = imm_binary[:7]
         lower = imm_binary[7:]
-        binary_code = upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode
+        binary_code = (upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode)
     
     elif opcode in B_funct3:
+        check_commas(line, 1, line_no)
+        check_operands(parts, 4, line_no)
         rs1 = parts[1]
         rs2 = parts[2]
         target = parts[3]
@@ -201,7 +205,9 @@ def assemble(lines):
         if target in labels:
             offset = labels[target] - pc
         else:
-            offset = int(target,0)
+            offset = parse_immediate(target, line_no)
+            if offset % 2 != 0:
+                raise ValueError("Line " + str(line_no) + ": Branch offset must be a multiple of 2")
         check_range(offset,13,line_no)
         imm_binary = decimal_to_signed_binary(offset, 13)
         imm = imm_binary[:-1]
@@ -209,7 +215,7 @@ def assemble(lines):
         imm_10_5 = imm[2:8]
         imm_4_1  = imm[8:12]
         imm_11   = imm[1]
-        binary_code = imm_12 + imm_10_5 + Register_Map[rs2] + Register_Map[rs1] + B_funct3[opcode] + imm_4_1 + imm_11 + B_opcode
+        binary_code = (imm_12 + imm_10_5 + Register_Map[rs2] + Register_Map[rs1] + B_funct3[opcode] + imm_4_1 + imm_11 + B_opcode)
         if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
             halt_line = line_no
     
