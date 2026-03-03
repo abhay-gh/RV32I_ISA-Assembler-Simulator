@@ -98,7 +98,11 @@ def first_pass(lines):
         if not line:
             continue
         if ":" in line:
-            label = line.split(":")[0].strip()
+            raw_before_colon = line.split(":")[0]
+            label_text = raw_before_colon.lstrip()
+            if label_text != label_text.rstrip():
+                raise ValueError("Line " + str(idx+1) + ": No space allowed between label and colon")
+            label = label_text.strip()
             if not label:
                 raise ValueError("Line " + str(idx+1) + ": Empty label")
             if not label[0].isalpha():
@@ -140,6 +144,8 @@ def assemble(lines):
     last_instruction_line = line_no
     
     if opcode in R_type_funct7_funct3 :
+        check_commas(line, 2, line_no)
+        check_operands(parts, 4, line_no)
         rd = parts[1]
         rs1 = parts[2]
         rs2 = parts[3]
@@ -148,10 +154,17 @@ def assemble(lines):
         check_reg(rs2,line_no)
         funct7 = R_type_funct7_funct3[opcode]["funct7"]
         funct3 = R_type_funct7_funct3[opcode]["funct3"]
-        binary_code = funct7 + Register_Map[rs2] + Register_Map[rs1] + funct3 + Register_Map[rd] + R_type_Opcode
+        binary_code = (funct7 + Register_Map[rs2] + Register_Map[rs1] + funct3 + Register_Map[rd] + R_type_Opcode)
     
     elif opcode in I_type :
         if opcode == "lw":
+            check_commas(line, 1, line_no)
+        elif opcode == "jalr" and "(" in line and ")" in line:
+            check_commas(line, 1, line_no)
+        else:
+            check_commas(line, 2, line_no)
+        check_operands(parts, 4, line_no)
+        if opcode == "lw" or (opcode == "jalr" and "(" in line and ")" in line):
             rd = parts[1]
             imm = parts[2]
             rs1 = parts[3]
@@ -161,10 +174,10 @@ def assemble(lines):
             imm = parts[3]
         check_reg(rd,line_no)
         check_reg(rs1,line_no)
-        imm_val = int(imm, 0)
+        imm_val = parse_immediate(imm, line_no)
         check_range(imm_val,12,line_no)
         imm_binary = decimal_to_signed_binary(imm_val, 12)
-        binary_code = imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"]
+        binary_code = (imm_binary + Register_Map[rs1] + I_type[opcode]["funct3"] + Register_Map[rd] + I_type[opcode]["opcode"])
     
     elif opcode in S_funct3:
         rs2 = parts[1]
