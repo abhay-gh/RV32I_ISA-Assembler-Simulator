@@ -89,7 +89,10 @@ def check_range(val, bits, line_no):
     maximum = limit - 1
     if val < minimum or val > maximum:
         raise ValueError("Line " + str(line_no) + ": Immediate out of range")
-
+def check_commas(line, expected, line_no):
+    comma_count = line.count(',')
+    if comma_count != expected:
+        raise ValueError("Line " + str(line_no) + ": Invalid syntax (missing or extra comma)")
 def first_pass(lines):
     labels = {}
     pc = 0
