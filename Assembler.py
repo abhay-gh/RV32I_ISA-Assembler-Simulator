@@ -198,7 +198,7 @@ def assemble(lines):
         binary_code = (upper + Register_Map[rs2] + Register_Map[rs1] + S_funct3[opcode] + lower + S_opcode)
     
     elif opcode in B_funct3:
-        check_commas(line, 1, line_no)
+        check_commas(line, 2, line_no)
         check_operands(parts, 4, line_no)
         rs1 = parts[1]
         rs2 = parts[2]
