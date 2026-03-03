@@ -62,11 +62,22 @@ J_opcode = "1101111"
 def decimal_to_signed_binary(value, bits):
     if value < 0:
         value = (1 << bits) + value
-    return format(value, "0{}b".format(bits))
+    binary_string = format(value, "b")
+    padding_length = bits - len(binary_string)
+    if padding_length > 0:
+        binary_string = "0" * padding_length+binary_string
+    
+    return binary_string
 
 def check_reg(r, line_no):
     if r not in Register_Map:
         raise ValueError("Line " + str(line_no) + ": Invalid register " + r)
+      
+def check_operands(parts, expected, line_no):
+    if len(parts) < expected:
+        raise ValueError("Line " + str(line_no) + ": Too few operands for " + parts[0])
+    if len(parts) > expected:
+        raise ValueError("Line " + str(line_no) + ": Too many operands for " + parts[0])
 
 def check_range(val, bits, line_no):
     limit = 1 << (bits - 1)
