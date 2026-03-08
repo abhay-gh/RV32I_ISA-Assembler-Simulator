@@ -53,6 +53,8 @@ The assembler assumes:
 
 -   Branch and label offsets must be multiples of 2.
 
+-   Labels are resolved using a two-pass approach. In the first pass, all labels and their corresponding instruction addresses are recorded. In the second pass, instructions referencing labels (such as branch and jump instructions) are encoded using the computed PC-relative offsets.
+
 -   Labels are converted to relative PC offsets. Offset is calculated as: offset = label_address − current_PC
 
 -   Labels represent instruction addresses.
@@ -77,6 +79,22 @@ The assembler assumes:
 -   No support for pseudo-instructions, floating-point instructions, etc.
 
 -   Memory addressing supports only base + immediate format. e.g. lw x1, 8(x2)
+
+# Memory Assumptions
+
+-   Program memory size is 256 bytes, allowing 64 instructions.
+
+-   Stack memory ranges from 0x00000100 to 0x0000017F.
+
+-   Stack pointer is initialized to 0x0000017C.
+
+-   Stack grows downwards.
+
+-   Data memory ranges from 0x00010000 to 0x0001007F.
+
+-   Only the first 32 locations of data memory are used.
+
+-   Memory bounds are assumed to be enforced by the simulator, not the assembler. The assembler simply produces machine code sequentially and assumes that the simulator will load and manage instructions within the defined memory regions.
 
 # Running the Program
 
