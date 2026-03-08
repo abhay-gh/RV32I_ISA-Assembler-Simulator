@@ -205,12 +205,14 @@ def assemble(lines):
         target = parts[3]
         check_reg(rs1,line_no)
         check_reg(rs2,line_no)
-        if target in labels:
-            offset = labels[target] - pc
-        else:
+        try:
             offset = parse_immediate(target, line_no)
-            if offset % 2 != 0:
-                raise ValueError("Line " + str(line_no) + ": Branch offset must be a multiple of 2")
+        except ValueError:
+            if target not in labels:
+                raise ValueError(f"Line {line_no}: Undefined label '{target}'")
+            offset = labels[target] - pc
+        if offset % 2 != 0:
+            raise ValueError("Line " + str(line_no) + ": Branch offset must be a multiple of 2")
         check_range(offset,13,line_no)
         imm_binary = decimal_to_signed_binary(offset, 13)
         imm = imm_binary[:-1]

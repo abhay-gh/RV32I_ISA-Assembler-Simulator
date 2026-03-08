@@ -69,7 +69,7 @@ The assembler assumes:
 
 -   Comments start with ';'. Anything after ';' is ignored.
 
--   The assembler treats 'beq zero, zero, 0' as a virtual halt instruction. This can also be written using a self-branching label such as: 'halt: beq zero, zero, halt' which produces an offset of 0 after label resolution. If any of these instructions is not present at the end, the assembler will raise an error.
+-   The assembler treats 'beq zero, zero, 0' as a virtual halt instruction to signal termination. This can also be written using a self-branching label such as: 'halt: beq zero, zero, halt' which produces an offset of 0 after label resolution. If any of these instructions is not present in the code, the assembler will raise an error.
 
 
 # Limitations
