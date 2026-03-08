@@ -221,6 +221,7 @@ def assemble(lines):
         binary_code = (imm_12 + imm_10_5 + Register_Map[rs2] + Register_Map[rs1] + B_funct3[opcode] + imm_4_1 + imm_11 + B_opcode)
         if opcode == "beq" and Register_Map[rs1] == "00000" and Register_Map[rs2] == "00000" and offset == 0:
             halt_line = line_no
+            
     elif opcode in U_type:
         check_commas(line, 1, line_no)
         check_operands(parts, 3, line_no)
