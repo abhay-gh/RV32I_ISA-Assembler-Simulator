@@ -22,6 +22,13 @@ def format(value):
 def err(line, msg):
     raise Exception(f"Line {line}: {msg}")
 
+def is_valid_word_memory_address(addr):
+    if addr % 4 != 0:
+        return False
+    in_stack = STACK_START <= addr <= STACK_END
+    in_data  = DATA_START <= addr <= DATA_END
+    return in_stack or in_data
+
 def parse(file):
     code, lines = [], []
     with open(file) as f:
