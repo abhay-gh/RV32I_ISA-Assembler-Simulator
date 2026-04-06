@@ -19,6 +19,10 @@ def to_signed32(value):
 def format(value):
     return f"0b{to_unsigned32(value):032b}"
 
+def decode_j_imm(instr):
+    bits = instr[0] + instr[12:20] + instr[11] + instr[1:11] + "0"
+    return bin_to_signed(bits)
+
 def err(line, msg):
     raise Exception(f"Line {line}: {msg}")
 
@@ -119,8 +123,23 @@ def simulate(code, lines):
         elif op == "1100011":  #B
 
         elif op in ("0110111", "0010111"): #U
+            rd = int(instr[20:25], 2)
+
+            imm = int(instr[0:20], 2)
+            imm = imm << 12
+            imm = to_unsigned32(imm)
+
+            if op == "0110111":
+                r[rd] = imm
+        
+            elif op == "0010111":
+                r[rd] = to_unsigned32(pc + imm)
 
         elif op == "1101111": #J
+            rd = int(instr[20:25], 2)
+            imm = decode_j_imm(instr)
+            r[rd] = to_unsigned32(next_pc)      
+            next_pc = to_unsigned32(pc + imm)
             
         else:
             err(line_no, f"Unsupported opcode {op}")
