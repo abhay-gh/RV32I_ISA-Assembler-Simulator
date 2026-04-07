@@ -4,24 +4,31 @@ STACK_START, STACK_END = 0x100, 0x17F
 DATA_START, DATA_END = 0x10000, 0x1007F
 
 MAX_INSTRUCTIONS = 64
+MAX_STEPS = 200000
+
 
 def bin_to_signed(b):
-    x=int(b, 2)
-    return x-(1<<len(b)) if b[0]=="1" else x
+    x = int(b, 2)
+    return x - (1 << len(b)) if b[0] == "1" else x
+
 
 def to_unsigned32(x):
     return x & 0xFFFFFFFF
+
 
 def to_signed32(value):
     value &= 0xFFFFFFFF
     return value - 0x100000000 if value & 0x80000000 else value
 
+
 def format(value):
     return f"0b{to_unsigned32(value):032b}"
+
 
 def decode_j_imm(instr):
     bits = instr[0] + instr[12:20] + instr[11] + instr[1:11] + "0"
     return bin_to_signed(bits)
+
 
 def decode_b_imm(instr):
     bits = instr[0] + instr[24] + instr[1:7] + instr[20:24] + "0"
@@ -31,168 +38,190 @@ def decode_b_imm(instr):
 def err(line, msg):
     raise Exception(f"Line {line}: {msg}")
 
+
 def is_valid_word_memory_address(addr):
     if addr % 4 != 0:
         return False
-    in_stack = STACK_START <= addr <= STACK_END
-    in_data  = DATA_START <= addr <= DATA_END
-    return in_stack or in_data
+    return (STACK_START <= addr <= STACK_END) or (DATA_START <= addr <= DATA_END)
 
-def parse(file):
-    code, lines = [], []
-    with open(file) as f:
-        for i, l in enumerate(f, 1):
-            l = l.strip()
-            if not l:
-                continue
-            if len(l) != 32 or any(c not in "01" for c in l):
-                err(i, "Invalid instruction")
-            code.append(l)
-            lines.append(i)
-    if not code:
-        err(1, "Empty file")
-    if len(code) > MAX_INSTRUCTIONS:
-        err(lines[MAX_INSTRUCTIONS], "Too large")
-    return code, lines
+
+def exec_r(instr, r, line_no):
+    funct7 = instr[0:7]
+    rs2 = int(instr[7:12], 2)
+    rs1 = int(instr[12:17], 2)
+    funct3 = instr[17:20]
+    rd = int(instr[20:25], 2)
+
+    a, b = r[rs1], r[rs2]
+
+    R = {
+        ("000","0000000"): a + b,
+        ("000","0100000"): a - b,
+        ("111","0000000"): a & b,
+        ("110","0000000"): a | b,
+        ("100","0000000"): a ^ b,
+        ("001","0000000"): a << (b & 0x1F),
+        ("101","0000000"): to_unsigned32(a) >> (b & 0x1F),
+        ("010","0000000"): int(to_signed32(a) < to_signed32(b)),
+        ("011","0000000"): int(to_unsigned32(a) < to_unsigned32(b)),
+    }
+
+    if (funct3, funct7) not in R:
+        err(line_no, "Unsupported R-type instruction")
+
+    r[rd] = to_unsigned32(R[(funct3, funct7)])
+
+
+def exec_i(instr, r, memory, pc, next_pc, line_no):
+    op = instr[25:]
+    imm = bin_to_signed(instr[0:12])
+    rs1 = int(instr[12:17], 2)
+    funct3 = instr[17:20]
+    rd = int(instr[20:25], 2)
+
+    if op == "0010011":
+        if funct3 == "000":
+            r[rd] = to_unsigned32(r[rs1] + imm)
+        elif funct3 == "011":
+            r[rd] = int(to_unsigned32(r[rs1]) < to_unsigned32(imm))
+        else:
+            err(line_no, "Unsupported I-type instruction")
+
+    elif op == "0000011":
+        if funct3 != "010":
+            err(line_no, "Unsupported load instruction")
+
+        addr = to_unsigned32(r[rs1] + imm)
+        if not is_valid_word_memory_address(addr):
+            print(f"Line {line_no}: Invalid memory access at 0x{addr:08X}")
+            return next_pc, False
+
+        r[rd] = memory.get(addr, 0)
+
+    elif op == "1100111":
+        if funct3 != "000":
+            err(line_no, "Unsupported jalr instruction")
+
+        temp = next_pc
+        next_pc = to_unsigned32(r[rs1] + imm) & ~1
+        r[rd] = to_unsigned32(temp)
+
+    return next_pc, True
+
+
+def exec_s(instr, r, memory, line_no):
+    if instr[17:20] != "010":
+        err(line_no, "Unsupported store instruction")
+
+    imm = bin_to_signed(instr[0:7] + instr[20:25])
+    rs2 = int(instr[7:12], 2)
+    rs1 = int(instr[12:17], 2)
+
+    addr = to_unsigned32(r[rs1] + imm)
+    if not is_valid_word_memory_address(addr):
+        print(f"Line {line_no}: Invalid memory access at 0x{addr:08X}")
+        return False
+
+    memory[addr] = to_unsigned32(r[rs2])
+    return True
+
+
+def exec_b(instr, r, pc, next_pc, line_no):
+    imm = decode_b_imm(instr)
+    rs1 = int(instr[12:17], 2)
+    rs2 = int(instr[7:12], 2)
+    funct3 = instr[17:20]
+
+    a, b = r[rs1], r[rs2]
+
+    ops = {
+        "000": lambda: a == b,
+        "001": lambda: a != b,
+        "100": lambda: to_signed32(a) < to_signed32(b),
+        "101": lambda: to_signed32(a) >= to_signed32(b),
+        "110": lambda: to_unsigned32(a) < to_unsigned32(b),
+        "111": lambda: to_unsigned32(a) >= to_unsigned32(b),
+    }
+
+    if funct3 not in ops:
+        err(line_no, "Unsupported branch instruction")
+
+    if ops[funct3]():
+        next_pc = to_unsigned32(pc + imm)
+
+    return next_pc
+
+
+def exec_u(instr, r, pc):
+    op = instr[25:]
+    rd = int(instr[20:25], 2)
+    imm = to_unsigned32(int(instr[0:20], 2) << 12)
+
+    if op == "0110111":
+        r[rd] = imm
+    else:
+        r[rd] = to_unsigned32(pc + imm)
+
+
+def exec_j(instr, r, pc, next_pc):
+    rd = int(instr[20:25], 2)
+    imm = decode_j_imm(instr)
+
+    r[rd] = to_unsigned32(next_pc)
+    return to_unsigned32(pc + imm)
+
+
+# ---------------- MAIN SIM ---------------- #
 
 def simulate(code, lines):
-    r=[0]*32
-    memory= {}
-    pc=0
-    steps=0
-    trace_lines=[]
-    r[2]=0x17C  # stack pointer (grows downwards)
+    r = [0] * 32
+    memory = {}
+    pc = 0
+    steps = 0
+    trace_lines = []
 
-    while 0 <= pc < len(code)*4:
-        i=pc//4
-        instr, line_no = code[i], lines[i]
-        steps+=1
-        next_pc=pc+4
+    r[2] = 0x17C
 
-        op=instr[25:]
+    while 0 <= pc < len(code) * 4:
+        if steps > MAX_STEPS:
+            err(lines[pc // 4], "Infinite loop")
 
-        if op == "0110011":  
-            funct7 = instr[0:7]
-            rs2, rs1, funct3, rd = int(instr[7:12],2), int(instr[12:17],2), instr[17:20], int(instr[20:25],2)
-            a, b = r[rs1], r[rs2]
+        steps += 1
 
-            R = {
-                ("000","0000000"): a + b,
-                ("000","0100000"): a - b,
-                ("111","0000000"): a & b,
-                ("110","0000000"): a | b,
-                ("100","0000000"): a ^ b,
-                ("001","0000000"): a << (b & 0x1F),
-                ("101","0000000"): to_unsigned32(a) >> (b & 0x1F),
-                ("010","0000000"): int(to_signed32(a) < to_signed32(b)),
-                ("011","0000000"): int(to_unsigned32(a) < to_unsigned32(b)),
-            }
+        i = pc // 4
+        instr = code[i]
+        line_no = lines[i]
 
-            if (funct3, funct7) not in R:
-                raise err(line_no, "Unsupported R-type instruction")
-            r[rd] = to_unsigned32(R[(funct3, funct7)])
+        next_pc = pc + 4
+        op = instr[25:]
 
-        elif op in ("0010011", "0000011", "1100111"): 
-            imm = bin_to_signed(instr[0:12])
-            rs1, funct3, rd = int(instr[12:17],2), instr[17:20], int(instr[20:25],2)
+        if op == "0110011":
+            exec_r(instr, r, line_no)
 
-            if op == "0010011": 
-                if funct3 == "000":
-                    r[rd] = to_unsigned32(r[rs1] + imm)
-                elif funct3 == "011":
-                    r[rd] = int(to_unsigned32(r[rs1]) < to_unsigned32(imm))
-                else:
-                    raise err(line_no, "Unsupported I-type instruction")
+        elif op in ("0010011", "0000011", "1100111"):
+            next_pc, ok = exec_i(instr, r, memory, pc, next_pc, line_no)
+            if not ok:
+                return trace_lines, memory, False
 
-            elif op == "0000011":
-                if funct3 != "010":
-                    raise err(line_no, "Unsupported load instruction")
-                addr = to_unsigned32(r[rs1] + imm)
-                if not is_valid_word_memory_address(addr):
-                    print(f"Line {line_no}: Invalid memory access at 0x{addr:08X}")
-                    return trace_lines, memory, False
-                if addr in memory:
-                    r[rd] = memory[addr]
-                else:
-                    r[rd] = 0
+        elif op == "0100011":
+            if not exec_s(instr, r, memory, line_no):
+                return trace_lines, memory, False
 
-            elif op == "1100111": 
-                if funct3 != "000":
-                    raise err(line_no, "Unsupported jalr instruction")
-                temp     = next_pc
-                next_pc  = to_unsigned32(r[rs1] + imm) & ~1
-                r[rd] = to_unsigned32(temp)
+        elif op == "1100011":
+            next_pc = exec_b(instr, r, pc, next_pc, line_no)
 
-            elif op == "0100011":  # sw
-                if instr[17:20] != "010":
-                    raise err(line_no, "Unsupported store instruction")
-                imm = bin_to_signed(instr[0:7] + instr[20:25])
-                rs2 = int(instr[7:12], 2)
-                rs1 = int(instr[12:17], 2)
-                addr = to_unsigned32(r[rs1] + imm)
-                if not is_valid_word_memory_address(addr):
-                        print(f"Line {line_no}: Invalid memory access at 0x{addr:08X}")
-                        return trace_lines, memory, False
-                memory[addr] = to_unsigned32(r[rs2])
-            
-            elif op == "1100011":  # B-type
-                imm = decode_b_imm(instr)
-                rs1 = int(instr[12:17], 2)
-                rs2 = int(instr[7:12], 2)
-                funct3 = instr[17:20]
-                a = r[rs1]
-                b = r[rs2]
-                ops = {
-                    "000": lambda: to_unsigned32(a) == to_unsigned32(b),  # beq
-                    "001": lambda: to_unsigned32(a) != to_unsigned32(b),  # bne
-                    "100": lambda: to_signed32(a) < to_signed32(b),      # blt
-                    "101": lambda: to_signed32(a) >= to_signed32(b),     # bge
-                    "110": lambda: to_unsigned32(a) < to_unsigned32(b),  # bltu
-                    "111": lambda: to_unsigned32(a) >= to_unsigned32(b) } # bgeu  
+        elif op in ("0110111", "0010111"):
+            exec_u(instr, r, pc)
 
-                if funct3 not in ops:
-                        raise err(line_no, "Unsupported branch instruction")
-                if ops[funct3]():
-                    nextpc = to_unsigned32(pc + imm)
-                elif op in ("0110111", "0010111"): #U
-                    rd = int(instr[20:25], 2)
-                    imm = int(instr[0:20], 2)
-                    imm = imm << 12
-                    imm = to_unsigned32(imm)
-            if op == "0110111":
-                    r[rd] = imm
-            elif op == "0010111":
-                    r[rd] = to_unsigned32(pc + imm)
+        elif op == "1101111":
+            next_pc = exec_j(instr, r, pc, next_pc)
 
-        elif op == "1101111": #J
-            rd = int(instr[20:25], 2)
-            imm = decode_j_imm(instr)
-            r[rd] = to_unsigned32(next_pc)      
-            next_pc = to_unsigned32(pc + imm)
-            
         else:
             err(line_no, f"Unsupported opcode {op}")
-        r[0]=0
-        pc=next_pc
+
+        r[0] = 0
+        pc = next_pc
+
         trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
 
-
-def write_outputs(trace_lines, memory, output_trace_file, output_readable_file=None, include_memory_dump=True):
-
-    output = []
-    for line in trace_lines:
-        output.append(line)
-
-    if include_memory_dump:
-        for addr in range(0x00010000, 0x0001007C + 1, 4):
-            value = memory.get(addr, 0)
-            output.append(f"0x{addr:08X}:{format(value)}")
-
-    with open(output_trace_file, "w") as f:
-        for line in output:
-            f.write(line + "\n")
-
-    if output_readable_file:
-        with open(output_readable_file, "w") as f:
-            for line in output:
-                f.write(line + "\n")
+    return trace_lines, memory, True
