@@ -147,14 +147,24 @@ def simulate(code, lines):
         pc=next_pc
         trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
 
-#    Akhil
-def write_outputs(trace_lines, memory, output_trace_file, output_readable_file=None, include_memory_dump=True):
-    lines = list(trace_lines)
-    if include_memory_dump:
-        lines += [f"0x{addr:08X}:{format_bin32(memory.get(addr, 0))}"
-                  for addr in range(MEM_DUMP_START, MEM_DUMP_END + 1, 4)]
 
-    for path in filter(None, [output_trace_file, output_readable_file]):
-        with open(path, "w") as f:
-            f.write("\n".join(lines) + "\n")
+def write_outputs(trace_lines, memory, output_trace_file, output_readable_file=None, include_memory_dump=True):
+
+    output = []
+    for line in trace_lines:
+        output.append(line)
+
+    if include_memory_dump:
+        for addr in range(MEM_DUMP_START, MEM_DUMP_END + 1, 4):
+            value = memory.get(addr, 0)
+            output.append(f"0x{addr:08X}:{format_bin32(value)}")
+
+    with open(output_trace_file, "w") as f:
+        for line in output:
+            f.write(line + "\n")
+
+    if output_readable_file:
+        with open(output_readable_file, "w") as f:
+            for line in output:
+                f.write(line + "\n")
 
