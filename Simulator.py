@@ -118,21 +118,44 @@ def simulate(code, lines):
                 next_pc  = to_unsigned32(r[rs1] + imm) & ~1
                 r[rd] = to_unsigned32(temp)
 
-        elif op == "0100011":  #S
+            elif opcode == "0100011":  # sw
+              if instr[17:20] != "010":
+                 raise SimulatorError(lineno, "Unsupported store instruction")
+              imm = bintosigned(instr[0:7] + instr[20:25])
+              rs2 = int(instr[7:12], 2)
+              rs1 = int(instr[12:17], 2)
+              addr = tounsigned32(r[rs1] + imm)
+              if not isvalidwordmemoryaddress(addr):
+                    print(f"Line {lineno}: Invalid memory access at 0x{addr:08X}")
+                    return tracelines, memory, False
+             memory[addr] = tounsigned32(r[rs2])
+           elif opcode == "1100011":  # B-type
+             imm = decodebimm(instr)
+             rs1 = int(instr[12:17], 2)
+             rs2 = int(instr[7:12], 2)
+             funct3 = instr[17:20]
+             a = r[rs1]
+             b = r[rs2]
+             ops = {
+                   "000": lambda: tounsigned32(a) == tounsigned32(b),  # beq
+                   "001": lambda: tounsigned32(a) != tounsigned32(b),  # bne
+                   "100": lambda: tosigned32(a) < tosigned32(b),      # blt
+                   "101": lambda: tosigned32(a) >= tosigned32(b),     # bge
+                   "110": lambda: tounsigned32(a) < tounsigned32(b),  # bltu
+                   "111": lambda: tounsigned32(a) >= tounsigned32(b), # bgeu  }
 
-        elif op == "1100011":  #B
-
-        elif op in ("0110111", "0010111"): #U
-            rd = int(instr[20:25], 2)
-
-            imm = int(instr[0:20], 2)
-            imm = imm << 12
-            imm = to_unsigned32(imm)
-
-            if op == "0110111":
+           if funct3 not in ops:
+                    raise SimulatorError(lineno, "Unsupported branch instruction")
+           if ops[funct3]():
+                nextpc = tounsigned32(pc + imm)
+           elif op in ("0110111", "0010111"): #U
+                rd = int(instr[20:25], 2)
+                imm = int(instr[0:20], 2)
+                imm = imm << 12
+                imm = to_unsigned32(imm)
+          if op == "0110111":
                 r[rd] = imm
-        
-            elif op == "0010111":
+          elif op == "0010111":
                 r[rd] = to_unsigned32(pc + imm)
 
         elif op == "1101111": #J
