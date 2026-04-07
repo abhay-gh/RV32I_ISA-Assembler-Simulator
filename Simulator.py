@@ -6,6 +6,7 @@ DATA_START, DATA_END = 0x10000, 0x1007F
 MAX_INSTRUCTIONS = 64
 MAX_STEPS = 200000
 
+HALT_INSTR = "00000000000000000000000001100011"
 
 def bin_to_signed(b):
     x = int(b, 2)
@@ -96,14 +97,19 @@ def exec_i(instr, r, memory, pc, next_pc, line_no):
             print(f"Line {line_no}: Invalid memory access at 0x{addr:08X}")
             return next_pc, False
 
-        r[rd] = memory.get(addr, 0)
+        r[rd] = to_unsigned32(memory.get(addr, 0))
 
     elif op == "1100111":
         if funct3 != "000":
             err(line_no, "Unsupported jalr instruction")
 
         temp = next_pc
-        next_pc = to_unsigned32(r[rs1] + imm) & ~1
+        target = to_unsigned32(r[rs1] + imm)
+
+        if target % 4 != 0:
+            err(line_no, "Misaligned PC")
+
+        next_pc = target & ~1
         r[rd] = to_unsigned32(temp)
 
     return next_pc, True
@@ -171,6 +177,26 @@ def exec_j(instr, r, pc, next_pc):
     return to_unsigned32(pc + imm)
 
 
+def parse(file):
+    code, lines = [], []
+    with open(file) as f:
+        for i, l in enumerate(f, 1):
+            l = l.strip()
+            if not l:
+                continue
+            if len(l) != 32 or any(c not in "01" for c in l):
+                err(i, "Invalid instruction")
+            code.append(l)
+            lines.append(i)
+
+    if not code:
+        err(1, "Empty file")
+
+    if len(code) > MAX_INSTRUCTIONS:
+        err(lines[MAX_INSTRUCTIONS], "Too large")
+
+    return code, lines
+
 # ---------------- MAIN SIM ---------------- #
 
 def simulate(code, lines):
@@ -183,8 +209,8 @@ def simulate(code, lines):
     r[2] = 0x17C
 
     while 0 <= pc < len(code) * 4:
-        if steps > MAX_STEPS:
-            err(lines[pc // 4], "Infinite loop")
+        if steps >= MAX_STEPS:
+            err(lines[min(pc // 4, len(lines)-1)], "Infinite loop")
 
         steps += 1
 
@@ -192,9 +218,14 @@ def simulate(code, lines):
         instr = code[i]
         line_no = lines[i]
 
+        if instr == HALT_INSTR:
+            r[0] = 0
+            trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
+            return trace_lines, memory, True
+
         next_pc = pc + 4
         op = instr[25:]
-
+        
         if op == "0110011":
             exec_r(instr, r, line_no)
 
@@ -223,5 +254,35 @@ def simulate(code, lines):
         pc = next_pc
 
         trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
+    err(lines[-1], "Program terminated without Virtual Halt")
+    return trace_lines, memory, False
 
-    return trace_lines, memory, True
+def write_outputs(trace_lines, memory, output_trace_file, include_memory_dump=True):
+    output = list(trace_lines)
+
+    if include_memory_dump:
+        for addr in range(DATA_START, DATA_END + 1, 4):
+            val = memory.get(addr, 0)
+            output.append(f"0x{addr:08X}:{format(val)}")
+
+    with open(output_trace_file, "w") as f:
+        for line in output:
+            f.write(line + "\n")
+
+def main():
+    if len(sys.argv) < 3:
+        raise ValueError("Usage: python3 Simulator.py <input_machine_code_path> <output_trace_path>")
+
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+
+    code, lines = parse(input_file)
+    trace_lines, memory, completed = simulate(code, lines)
+
+    write_outputs(trace_lines, memory, output_file, include_memory_dump=completed)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(str(e))
