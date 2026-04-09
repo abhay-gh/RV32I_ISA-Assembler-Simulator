@@ -68,7 +68,7 @@ def exec_r(instr, r, line_no):
     }
 
     if (funct3, funct7) not in R:
-        err(line_no, "Unsupported R-type instruction")
+        err(line_no, "Invalid instruction")
 
     r[rd] = to_unsigned32(R[(funct3, funct7)])
 
@@ -117,7 +117,7 @@ def exec_i(instr, r, memory, pc, next_pc, line_no):
 
 def exec_s(instr, r, memory, line_no):
     if instr[17:20] != "010":
-        err(line_no, "Unsupported store instruction")
+        err(line_no, "Invalid instruction")
 
     imm = bin_to_signed(instr[0:7] + instr[20:25])
     rs2 = int(instr[7:12], 2)
@@ -197,7 +197,6 @@ def parse(file):
 
     return code, lines
 
-# ---------------- MAIN SIM ---------------- #
 
 def simulate(code, lines):
     r = [0] * 32
@@ -205,18 +204,17 @@ def simulate(code, lines):
     pc = 0
     steps = 0
     trace_lines = []
-
+    code_size=len(code)*4
     r[2] = 0x17C
 
-    while 0 <= pc < len(code) * 4:
-        if steps >= MAX_STEPS:
-            err(lines[min(pc // 4, len(lines)-1)], "Infinite loop")
-
-        steps += 1
-
+    while 0 <= pc <code_size:
         i = pc // 4
         instr = code[i]
         line_no = lines[i]
+        if steps >= MAX_STEPS:
+            trace_lines.append(f"Line {line_no}: Step limit exceeded")
+            return trace_lines, memory, False
+        steps += 1
 
         if instr == HALT_INSTR:
             r[0] = 0
@@ -255,10 +253,17 @@ def simulate(code, lines):
             err(line_no, f"Unsupported opcode {op}")
 
         r[0] = 0
+        if next_pc % 4 != 0:
+            err(line_no, f"Misaligned PC target: 0x{next_pc:08X}")
+        if next_pc < 0 or next_pc > len(code)*4:
+            err(line_no, f"PC out of bounds: 0x{next_pc:08X}")
         pc = next_pc
-
         trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
-    err(lines[-1], "Program terminated without Virtual Halt")
+
+    if pc < 0 or pc > code_size:
+       err(lines[-1], f"PC out of bounds: 0x{pc:08X}")
+    else:
+        err(lines[-1], "Program terminated without Virtual Halt")
     return trace_lines, memory, False
 
 def write_outputs(trace_lines, memory, output_trace_file, include_memory_dump=True):
