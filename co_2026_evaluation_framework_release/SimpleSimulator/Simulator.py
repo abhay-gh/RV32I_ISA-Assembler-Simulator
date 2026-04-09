@@ -212,8 +212,7 @@ def simulate(code, lines):
         instr = code[i]
         line_no = lines[i]
         if steps >= MAX_STEPS:
-            trace_lines.append(f"Line {line_no}: Step limit exceeded")
-            return trace_lines, memory, False
+            err(lines[min(pc // 4, len(lines)-1)], "Infinite loop")
         steps += 1
 
         if instr == HALT_INSTR:
