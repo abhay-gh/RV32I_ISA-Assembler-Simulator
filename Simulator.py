@@ -229,13 +229,13 @@ def simulate(code, lines):
             next_pc, ok = exec_i(instr, r, memory, pc, next_pc, line_no)
             if not ok:
                 r[0] = 0
-                trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
+                # trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
                 return trace_lines, memory, False
 
         elif op == "0100011":
             if not exec_s(instr, r, memory, line_no):
                 r[0] = 0
-                trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
+                # trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
                 return trace_lines, memory, False
 
         elif op == "1100011":
