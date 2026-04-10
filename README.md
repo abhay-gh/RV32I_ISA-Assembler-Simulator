@@ -152,7 +152,7 @@ After a clean Virtual Halt, data memory is appended:
 | Data memory    | `0x00010000` – `0x0001007F` | 128 bytes   | 32 × 32-bit |
  
 - Only word-aligned (`% 4 == 0`) accesses within the stack or data regions are valid.
-- An invalid load (`lw`) or store (`sw`) — unaligned address or address outside both regions — immediately terminates execution. The final register state is written to the trace; the memory dump is **omitted**.
+- An invalid load (`lw`) or store (`sw`) — unaligned address or address outside both regions — immediately terminates execution. No trace line is written for the faulting instruction, and the memory dump is **omitted**.
 - Data memory is initialised to `0` at startup.
  
 ## Simulator Error Handling
