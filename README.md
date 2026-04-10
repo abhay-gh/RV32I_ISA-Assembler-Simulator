@@ -165,12 +165,17 @@ Line <N>: <message>
  
 | Condition | Message |
 |-----------|---------|
-| Invalid memory access | `Line N: Invalid memory access at 0x########` |
-| Misaligned PC (JALR) | `Line N: Misaligned PC` |
-| Unsupported opcode | `Line N: Unsupported opcode <bits>` |
-| Execution limit exceeded | `Line N: Infinite loop` |
-| Program falls off end without halt | `Line N: Program terminated without Virtual Halt` |
- 
+| Load/store to invalid or unaligned address | `Line N: Invalid memory access at 0x########` |
+| PC is not 4-byte aligned after an instruction | `Line N: Misaligned PC` |
+| PC jumps outside the program bounds | `Line N: PC out of bounds: 0x########` |
+| Unknown opcode bits | `Line N: Unsupported opcode <bits>` |
+| Unsupported encoding within a known type | `Line N: Unsupported instruction` |
+| Execution step limit reached (200,000 steps) | `Line N: Infinite loop` |
+| Program ends without a Virtual Halt | `Line N: Program terminated without Virtual Halt` |
+| Input file contains no instructions | `Line 1: Empty file` |
+| Program exceeds 64 instructions | `Line N: Program too large (exceeds 64 instructions)` |
+| A line is not exactly 32 binary characters | `Line N: Invalid instruction` |
+
 ## Simulator Limitations
  
 - Only the instruction subset listed in Part 1 is simulated.

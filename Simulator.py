@@ -22,18 +22,8 @@ def to_signed32(value):
     return value - 0x100000000 if value & 0x80000000 else value
 
 
-def format(value):
+def format_bin(value):
     return f"0b{to_unsigned32(value):032b}"
-
-
-def decode_j_imm(instr):
-    bits = instr[0] + instr[12:20] + instr[11] + instr[1:11] + "0"
-    return bin_to_signed(bits)
-
-
-def decode_b_imm(instr):
-    bits = instr[0] + instr[24] + instr[1:7] + instr[20:24] + "0"
-    return bin_to_signed(bits)
 
 
 def err(line, msg):
@@ -45,6 +35,14 @@ def is_valid_word_memory_address(addr):
         return False
     return (STACK_START <= addr <= STACK_END) or (DATA_START <= addr <= DATA_END)
 
+def decode_j_imm(instr):
+    bits = instr[0] + instr[12:20] + instr[11] + instr[1:11] + "0"
+    return bin_to_signed(bits)
+
+
+def decode_b_imm(instr):
+    bits = instr[0] + instr[24] + instr[1:7] + instr[20:24] + "0"
+    return bin_to_signed(bits)
 
 def exec_r(instr, r, line_no):
     funct7 = instr[0:7]
@@ -68,7 +66,7 @@ def exec_r(instr, r, line_no):
     }
 
     if (funct3, funct7) not in R:
-        err(line_no, "Invalid instruction")
+        err(line_no, "Unsupported instruction")
 
     r[rd] = to_unsigned32(R[(funct3, funct7)])
 
@@ -86,11 +84,11 @@ def exec_i(instr, r, memory, pc, next_pc, line_no):
         elif funct3 == "011":
             r[rd] = int(to_unsigned32(r[rs1]) < to_unsigned32(imm))
         else:
-            err(line_no, "Unsupported I-type instruction")
+            err(line_no, "Unsupported instruction")
 
     elif op == "0000011":
         if funct3 != "010":
-            err(line_no, "Unsupported load instruction")
+            err(line_no, "Unsupported instruction")
 
         addr = to_unsigned32(r[rs1] + imm)
         if not is_valid_word_memory_address(addr):
@@ -101,7 +99,7 @@ def exec_i(instr, r, memory, pc, next_pc, line_no):
 
     elif op == "1100111":
         if funct3 != "000":
-            err(line_no, "Unsupported jalr instruction")
+            err(line_no, "Unsupported instruction")
 
         temp = next_pc
         target = to_unsigned32(r[rs1] + imm)
@@ -117,7 +115,7 @@ def exec_i(instr, r, memory, pc, next_pc, line_no):
 
 def exec_s(instr, r, memory, line_no):
     if instr[17:20] != "010":
-        err(line_no, "Invalid instruction")
+        err(line_no, "Unsupported instruction")
 
     imm = bin_to_signed(instr[0:7] + instr[20:25])
     rs2 = int(instr[7:12], 2)
@@ -150,7 +148,7 @@ def exec_b(instr, r, pc, next_pc, line_no):
     }
 
     if funct3 not in ops:
-        err(line_no, "Unsupported branch instruction")
+        err(line_no, "Unsupported instruction")
 
     if ops[funct3]():
         next_pc = to_unsigned32(pc + imm)
@@ -193,7 +191,7 @@ def parse(file):
         err(1, "Empty file")
 
     if len(code) > MAX_INSTRUCTIONS:
-        err(lines[MAX_INSTRUCTIONS], "Too large")
+        err(lines[MAX_INSTRUCTIONS], "Program too large (exceeds 64 instructions)")
 
     return code, lines
 
@@ -211,18 +209,19 @@ def simulate(code, lines):
         i = pc // 4
         instr = code[i]
         line_no = lines[i]
+
         if steps >= MAX_STEPS:
-            err(lines[min(pc // 4, len(lines)-1)], "Infinite loop")
+            err(line_no, "Infinite loop")
         steps += 1
 
         if instr == HALT_INSTR:
             r[0] = 0
-            trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
+            trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
             return trace_lines, memory, True
 
         next_pc = pc + 4
         op = instr[25:]
-        
+
         if op == "0110011":
             exec_r(instr, r, line_no)
 
@@ -230,13 +229,13 @@ def simulate(code, lines):
             next_pc, ok = exec_i(instr, r, memory, pc, next_pc, line_no)
             if not ok:
                 r[0] = 0
-                trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
+                trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
                 return trace_lines, memory, False
 
         elif op == "0100011":
             if not exec_s(instr, r, memory, line_no):
                 r[0] = 0
-                trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
+                trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
                 return trace_lines, memory, False
 
         elif op == "1100011":
@@ -253,26 +252,23 @@ def simulate(code, lines):
 
         r[0] = 0
         if next_pc % 4 != 0:
-            err(line_no, f"Misaligned PC target: 0x{next_pc:08X}")
-        if next_pc < 0 or next_pc > len(code)*4:
+            err(line_no, "Misaligned PC")
+        if not (0 <= next_pc <= code_size):
             err(line_no, f"PC out of bounds: 0x{next_pc:08X}")
         pc = next_pc
-        trace_lines.append(" ".join([format(pc)] + [format(x) for x in r]))
+        trace_lines.append(" ".join([format_bin(pc)] + [format_bin(x) for x in r]))
 
-    if pc < 0 or pc > code_size:
-       err(lines[-1], f"PC out of bounds: 0x{pc:08X}")
-    else:
-        err(lines[-1], "Program terminated without Virtual Halt")
+    err(lines[-1], "Program terminated without Virtual Halt")
     return trace_lines, memory, False
 
-def write_outputs(trace_lines, memory, output_trace_file, include_memory_dump=True):
+def write_outputs(trace_lines, memory, output_trace_file, include_memory_dump):
     with open(output_trace_file, "w") as f:
         for line in trace_lines:
             f.write(line + "\n")
         if include_memory_dump:
             for addr in range(DATA_START, DATA_END + 1, 4):
                 val = memory.get(addr, 0)
-                f.write(f"0x{addr:08X}:{format(val)}\n")
+                f.write(f"0x{addr:08X}:{format_bin(val)}\n")
 
 def main():
     if len(sys.argv) < 3:
